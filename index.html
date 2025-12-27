@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0ea5e9" />
+  <link rel="manifest" href="manifest.webmanifest">
+  <title>عداد الصلوات</title>
+  <style>
+    :root{--bg:#0b1220;--card:#111a2b;--txt:#e6edf7;--muted:#9fb1c6}
+    *{box-sizing:border-box;font-family:system-ui,-apple-system,Arial}
+    body{margin:0;background:linear-gradient(180deg,#071023,#0b1220);color:var(--txt);min-height:100vh}
+    header{padding:18px 16px 10px;position:sticky;top:0;background:rgba(7,16,35,.85);backdrop-filter:blur(10px);border-bottom:1px solid rgba(255,255,255,.06)}
+    h1{margin:0;font-size:20px}
+    .sub{margin:6px 0 0;color:var(--muted);font-size:13px}
+    main{padding:14px 14px 22px}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .card{background:rgba(17,26,43,.9);border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:14px}
+    .name{font-size:18px;font-weight:700}
+    .count{margin-top:8px;font-size:40px;font-weight:800}
+    .row{display:flex;gap:10px;align-items:center;justify-content:center;margin-top:10px}
+    button{border:none;border-radius:14px;padding:10px 12px;color:var(--txt);background:rgba(255,255,255,.08);cursor:pointer}
+    button:active{transform:scale(.98)}
+    .pm{width:52px;height:44px;font-size:22px;font-weight:800}
+    .reset{flex:1;font-size:14px;color:var(--muted)}
+    .footer{margin-top:14px}
+    .resetAll{width:100%;background:rgba(239,68,68,.18);border:1px solid rgba(239,68,68,.28);color:#ffd3d3;font-weight:700}
+    @media (min-width:520px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>عداد الصلوات</h1>
+    <div class="sub">اضغط + لزيادة العداد لكل صلاة — الحفظ دائم على جهازك.</div>
+  </header>
+
+  <main>
+    <section class="grid" id="grid"></section>
+    <div class="footer">
+      <button class="resetAll" id="resetAll">تصفير الكل</button>
+    </div>
+  </main>
+
+<script>
+  const DEFAULT = [
+    { id:"fajr",    name:"الفجر",   count:0 },
+    { id:"dhuhr",   name:"الظهر",   count:0 },
+    { id:"asr",     name:"العصر",   count:0 },
+    { id:"maghrib", name:"المغرب",  count:0 },
+    { id:"isha",    name:"العشاء",  count:0 },
+  ];
+  const KEY = "prayerCounters.v1";
+
+  function load(){
+    try{
+      const raw = localStorage.getItem(KEY);
+      if(!raw) return structuredClone(DEFAULT);
+      const data = JSON.parse(raw);
+      const map = new Map(data.map(x=>[x.id,x]));
+      return DEFAULT.map(d => ({...d, count: Number(map.get(d.id)?.count ?? d.count)}));
+    }catch{
+      return structuredClone(DEFAULT);
+    }
+  }
+  function save(state){ localStorage.setItem(KEY, JSON.stringify(state)); }
+
+  let state = load();
+  const grid = document.getElementById("grid");
+
+  function render(){
+    grid.innerHTML = "";
+    for(const item of state){
+      const card = document.createElement("div");
+      card.className = "card";
+      card.innerHTML = `
+        <div class="name">${item.name}</div>
+        <div class="count">${item.count}</div>
+        <div class="row">
+          <button class="pm" data-act="minus" data-id="${item.id}">−</button>
+          <button class="pm" data-act="plus" data-id="${item.id}">+</button>
+        </div>
+        <div class="row">
+          <button class="reset" data-act="reset" data-id="${item.id}">تصفير</button>
+        </div>
+      `;
+      grid.appendChild(card);
+    }
+  }
+
+  function update(id, act){
+    const i = state.findIndex(x=>x.id===id);
+    if(i<0) return;
+    if(act==="plus") state[i].count += 1;
+    if(act==="minus") state[i].count = Math.max(0, state[i].count - 1);
+    if(act==="reset") state[i].count = 0;
+    save(state);
+    render();
+  }
+
+  grid.addEventListener("click", (e)=>{
+    const btn = e.target.closest("button");
+    if(!btn) return;
+    update(btn.dataset.id, btn.dataset.act);
+  });
+
+  document.getElementById("resetAll").addEventListener("click", ()=>{
+    state = state.map(x=>({ ...x, count:0 }));
+    save(state);
+    render();
+  });
+
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => navigator.serviceWorker.register("./sw.js").catch(()=>{}));
+  }
+
+  render();
+</script>
+</body>
+</html>
